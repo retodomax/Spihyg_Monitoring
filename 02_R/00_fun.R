@@ -56,8 +56,11 @@ prop_period_fun <- function(dat, response, by, filter_crit, full_grid){
     dat <- dat %>% 
       filter(.data[[filter_crit]] == "Ja")
   }
+  if(!is.na(by)){
+    dat <- dat %>% group_by(.data[[by]])
+  }
   dat_by <- dat %>% 
-    group_by(Messperiode, .data[[by]]) %>% 
+    group_by(Messperiode) %>% 
     summarize(n = sum(!is.na(.data[[response]])),
               n_correct = sum(.data[[response]] == 1, na.rm = TRUE),
               n_wrong = sum(.data[[response]] == 0, na.rm = TRUE)) %>% 
@@ -69,19 +72,23 @@ prop_period_fun <- function(dat, response, by, filter_crit, full_grid){
     full_join(full_grid) %>% 
     filter(!is.na(.data[[by]])) %>% 
     mutate(n = ifelse(is.na(n), 0, n))
-  dat_agg <- dat_by %>%
-    group_by(Messperiode) %>% 
-    summarise(n = sum(n, na.rm = TRUE),
-              n_correct = sum(n_correct, na.rm = TRUE),
-              n_wrong = sum(n_wrong, na.rm = TRUE)) %>% 
-    mutate(percent_correct = n_correct/n) %>% 
-    rowwise() %>% 
-    mutate(CI_lo = binom_CI(n_correct, n, 1),
-           CI_up = binom_CI(n_correct, n, 2)) %>% 
-    ungroup() %>% 
-    full_join(tibble(Messperiode = year_full_levels(dat$Messperiode))) %>% 
-    mutate(n = ifelse(is.na(n), 0, n))
-  list(dat_by = dat_by, dat_agg = dat_agg)
+  if(!is.na(by)){
+    dat_agg <- dat_by %>%
+      group_by(Messperiode) %>% 
+      summarise(n = sum(n, na.rm = TRUE),
+                n_correct = sum(n_correct, na.rm = TRUE),
+                n_wrong = sum(n_wrong, na.rm = TRUE)) %>% 
+      mutate(percent_correct = n_correct/n) %>% 
+      rowwise() %>% 
+      mutate(CI_lo = binom_CI(n_correct, n, 1),
+             CI_up = binom_CI(n_correct, n, 2)) %>% 
+      ungroup() %>% 
+      full_join(tibble(Messperiode = year_full_levels(dat$Messperiode))) %>% 
+      mutate(n = ifelse(is.na(n), 0, n))
+    list(dat_by = dat_by, dat_agg = dat_agg)
+  } else {
+    dat_by
+  }
 }
 
 ## function to make plots
