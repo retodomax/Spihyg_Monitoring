@@ -12,7 +12,7 @@
 library(readxl)
 library(magrittr)
 library(tidyverse)
-source("02_R/fun.R")
+source("02_R/00_fun.R")
 
 
 # read data ---------------------------------------------------------------
