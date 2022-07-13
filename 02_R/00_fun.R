@@ -120,9 +120,11 @@ plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
     cols1 <- c("Spezifische Abteilung" = "black")
     cols2 <- c("USZ Durchschnitt" = "lightgray")
     p2 <- prop_period[[1]] %>% 
-      mutate(percent_correct = ifelse(n < n_min, NA, percent_correct),
-             CI_lo = ifelse(n < n_min, NA, CI_lo),
-             CI_up = ifelse(n < n_min, NA, CI_up)) %>% 
+      # mutate(percent_correct = ifelse(n < n_min, NA, percent_correct),
+      #        CI_lo = ifelse(n < n_min, NA, CI_lo),
+      #        CI_up = ifelse(n < n_min, NA, CI_up)) %>% 
+      mutate(across(all_of(c("percent_correct", "CI_lo", "CI_up")),
+                    ~ ifelse(n < n_min, NA, .x))) %>% 
       ggplot(aes(x = Messperiode, y = percent_correct, group = 1)) +
       {if(gray_area) geom_area(data = prop_period[[2]],
                                aes(x = Messperiode, y = percent_correct,
@@ -148,9 +150,11 @@ plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
     ag_table <- prop_period[[2]]
   }
   p1 <- ag_table %>% 
-    mutate(percent_correct = ifelse(n < n_min, NA, percent_correct),
-           CI_lo = ifelse(n < n_min, NA, CI_lo),
-           CI_up = ifelse(n < n_min, NA, CI_up)) %>% 
+    # mutate(percent_correct = ifelse(n < n_min, NA, percent_correct),
+    #        CI_lo = ifelse(n < n_min, NA, CI_lo),
+    #        CI_up = ifelse(n < n_min, NA, CI_up)) %>% 
+    mutate(across(all_of(c("percent_correct", "CI_lo", "CI_up")),
+                  ~ ifelse(n < n_min, NA, .x))) %>% 
     ggplot(aes(x = Messperiode, y = percent_correct, group = 1,
                label = round(percent_correct, 2))) +
     geom_errorbar(aes(ymin = CI_lo, ymax = CI_up), width = 0.1, col = "darkgray") +
