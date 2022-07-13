@@ -33,20 +33,15 @@ dat <- dat %>%
 
 # create tables -----------------------------------------------------------
 
-full_grid <- expand_grid(Messperiode = year_full_levels(dat$Messperiode),
-                        Station = unique(dat$Station))
-
-t_OKH <- prop_period_fun(dat = dat, response = "OKH_Formel", by = "Station",
-                filter_crit = "OKH_istRelevant", full_grid = full_grid)
+t_OKH <- prop_period_fun(dat = dat, response = "OKH_Formel",
+                         by = "Station",
+                         filter_crit = "OKH_istRelevant")
 t_Sed <- prop_period_fun(dat = dat, response = "Sedationsstopp_Ja_Nein",
                          by = "Station",
-                         filter_crit = "Sedationsstopp_istRelevant",
-                         full_grid = full_grid)
+                         filter_crit = "Sedationsstopp_istRelevant")
 t_Mund <- prop_period_fun(dat = dat, response = "Mundpflege",
-                          by = "Station",
-                          filter_crit = "Mundpflege_istRelevant",
-                          full_grid = full_grid)
-
+                         by = "Station",
+                         filter_crit = "Mundpflege_istRelevant")
 
 
 # create plots ------------------------------------------------------------

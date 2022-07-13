@@ -50,17 +50,10 @@ binom_CI <- function(x, n, l) {
   }
 }
 
-## function to get prop_period table
-prop_period_fun <- function(dat, response, by, filter_crit, full_grid){
-  if(!is.na(filter_crit)){
-    dat <- dat %>% 
-      filter(.data[[filter_crit]] == "Ja")
-  }
-  if(!is.na(by)){
-    dat <- dat %>% group_by(.data[[by]])
-  }
-  dat_by <- dat %>% 
-    group_by(Messperiode) %>% 
+## function to get proportion pivot table
+prop_table <- function(dat, response, by = NULL, full_grid){
+  dat %>% 
+    group_by(Messperiode, across(any_of(by))) %>% 
     summarize(n = sum(!is.na(.data[[response]])),
               n_correct = sum(.data[[response]] == 1, na.rm = TRUE),
               n_wrong = sum(.data[[response]] == 0, na.rm = TRUE)) %>% 
@@ -69,32 +62,57 @@ prop_period_fun <- function(dat, response, by, filter_crit, full_grid){
     mutate(CI_lo = binom_CI(n_correct, n, 1),
            CI_up = binom_CI(n_correct, n, 2)) %>% 
     ungroup() %>% 
-    full_join(full_grid) %>% 
-    arrange(Messperiode) %>% 
+    right_join(full_grid) %>% 
+    arrange_at(c("Messperiode", by)) %>% 
     mutate(n = ifelse(is.na(n), 0, n))
-  if(!is.na(by)){
-    dat_by <- dat_by %>% filter(!is.na(.data[[by]]))
-    dat_agg <- dat_by %>%
-      group_by(Messperiode) %>% 
-      summarise(n = sum(n, na.rm = TRUE),
-                n_correct = sum(n_correct, na.rm = TRUE),
-                n_wrong = sum(n_wrong, na.rm = TRUE)) %>% 
-      mutate(percent_correct = n_correct/n) %>% 
-      rowwise() %>% 
-      mutate(CI_lo = binom_CI(n_correct, n, 1),
-             CI_up = binom_CI(n_correct, n, 2)) %>% 
-      ungroup() %>% 
-      full_join(tibble(Messperiode = year_full_levels(dat$Messperiode))) %>% 
-      mutate(n = ifelse(is.na(n), 0, n))
-    list(dat_by = dat_by, dat_agg = dat_agg)
-  } else {
-    dat_by
-  }
 }
+
+## Applies prop_table twice if we specify `by` argument
+prop_period_fun <- function(dat, response, by = NULL, filter_crit = NULL){
+  if(!is.null(filter_crit)){
+    dat <- dat %>% filter(.data[[filter_crit]] == "Ja")
+  }
+  small_grid <- tibble(Messperiode = year_full_levels(dat$Messperiode))
+  out <- dat_agg <- prop_table(dat = dat, response = response,
+                               by = NULL, full_grid = small_grid)
+  if(!is.null(by)){
+    full_grid <- expand_grid(year_full_levels(dat$Messperiode),
+                             unique(na.omit(dat[[by]])))
+    colnames(full_grid) <- c("Messperiode", by)
+    dat_by <- prop_table(dat = dat, response = response,
+                         by = by, full_grid = full_grid)
+    out <- list(dat_by = dat_by, dat_agg = dat_agg)
+  }
+  out
+}
+
+## HDM Plots
+plot_hdm <- function(dat = dat_station, filter_by = "Intermediate-Care-Stationen (IMC)",
+                     filter_level = "Hauptbereich", wrap_by = "Station",
+                     filename){
+  p <- dat %>% 
+    filter(.data[[filter_level]] == filter_by) %>% 
+    ggplot(aes(x = Messperiode, y = desinf_per_careday, group = 1,
+               label = round(desinf_per_careday))) +
+    geom_point() +
+    geom_line() +
+    geom_text(hjust=0, vjust=-1.3, size = 2.5) +
+    ylab("Desinfektionsmittel/Pflegetag [ml/t]") +
+    facet_wrap(~ .data[[wrap_by]]) +
+    theme_bw() + 
+    scale_y_continuous(expand = expansion(mult = c(0.1,0.4))) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggsave(filename = filename, plot = p,
+         width = 16, height = 14, units = "cm", scale = 1.5)
+  p
+}
+
+
 
 ## function to make plots
 plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
-                             n_min = 10, ncols = 2, width1 = 8, height1 = 6){
+                             n_min = 10, ncols = 2, width1 = 8, height1 = 6,
+                             title = NULL, gray_area = TRUE){
   p2 <- NULL
   suffix <- ""
   ag_table <- prop_period
@@ -106,13 +124,15 @@ plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
              CI_lo = ifelse(n < n_min, NA, CI_lo),
              CI_up = ifelse(n < n_min, NA, CI_up)) %>% 
       ggplot(aes(x = Messperiode, y = percent_correct, group = 1)) +
-      geom_area(data = prop_period[[2]], aes(x = Messperiode, y = percent_correct,
-                                             fill = "USZ Durchschnitt")) +
+      {if(gray_area) geom_area(data = prop_period[[2]],
+                               aes(x = Messperiode, y = percent_correct,
+                                   fill = "USZ Durchschnitt"))} +
       geom_errorbar(aes(ymin = CI_lo, ymax = CI_up), width = 0.1, col = "darkgray") +
       geom_point(aes(col = "Spezifische Abteilung")) +
       geom_line(aes(col = "Spezifische Abteilung")) +
       theme_bw() +
-      theme(legend.position = "bottom") +
+      {if(gray_area) theme(legend.position = "bottom")} +
+      {if(!gray_area) theme(legend.position="none")} +
       scale_y_continuous(breaks = seq(0,1,0.25), limits = c(-.3,1)) +
       geom_text(aes(label = n, y = -.25)) +
       annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
@@ -143,29 +163,9 @@ plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
     annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
              hjust = 0) +
     ylab("Anteil korrekte Beobachtungen") +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    ggtitle(title) + theme(plot.title = element_text(size = 12))
   ggsave(paste0(fileprefix, suffix, ".png"), p1, width = width1, height = height1,
          units = "cm", scale = 1.5)
   list(p1, p2)
-}
-
-## HDM Plots
-plot_hdm <- function(dat = dat_station, filter_by = "Intermediate-Care-Stationen (IMC)",
-                     filter_level = "Hauptbereich", wrap_by = "Station",
-                     filename){
-  p <- dat %>% 
-    filter(.data[[filter_level]] == filter_by) %>% 
-    ggplot(aes(x = Messperiode, y = desinf_per_careday, group = 1,
-               label = round(desinf_per_careday))) +
-    geom_point() +
-    geom_line() +
-    geom_text(hjust=0, vjust=-1.3, size = 2.5) +
-    ylab("Desinfektionsmittel/Pflegetag [ml/t]") +
-    facet_wrap(~ .data[[wrap_by]]) +
-    theme_bw() + 
-    scale_y_continuous(expand = expansion(mult = c(0.1,0.4))) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-  ggsave(filename = filename, plot = p,
-         width = 16, height = 14, units = "cm", scale = 1.5)
-  p
 }

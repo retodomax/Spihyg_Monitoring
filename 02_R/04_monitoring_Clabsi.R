@@ -35,8 +35,52 @@ dat <- dat %>%
 
 # single plot -------------------------------------------------------------
 
+
+
+# all plots together ------------------------------------------------------
+
 full_grid <- expand_grid(Messperiode = year_full_levels(dat$Messperiode))
-t_Buendel <- prop_period_fun(dat = dat, response = "Buendel_calc", by = NA,
+
+
+p_var <- vector("list", length = length(var_sel))
+i <- 1
+for(i in seq_along(var_sel)){
+  resp <- var_sel[i]
+  t_var <- prop_period_fun(dat = dat, response = resp, by = NA,
+                               filter_crit = NA, full_grid = full_grid)
+  p_var[[i]] <- plot_prop_period(prop_period = t_var,
+                            fileprefix = paste0("03_figures/04_clapsi_",
+                                                sprintf("%02d", i)),
+                            title = resp)[[1]]
+}
+
+library(ggpubr)
+ggarrange(p_var[[2]], p_var[[3]], p_var[[4]],
+          p_var[[5]], p_var[[6]], p_var[[7]],
+          ncol = 3, nrow = 2)
+
+ggarrange(p_var[[8]], p_var[[9]], p_var[[10]],
+          p_var[[11]], p_var[[12]],
+          ncol = 3, nrow = 2)
+
+
+
+### Think about alternative solution:
+# 1) make table long (not for each variable a column)
+# 2) use facet_grid()
+
+
+ldat <- dat %>% 
+  pivot_longer(any_of(var_sel))
+# debugonce(prop_period_fun)
+t_var <- prop_period_fun(dat = ldat, response = "value", by = "name",
                          filter_crit = NA, full_grid = full_grid)
-p_OKH <- plot_prop_period(prop_period = t_Buendel,
-                          fileprefix = "03_figures/04_clapsi_01")
+plot_prop_period(prop_period = t_var, fileprefix = "03_figures/04_clapsi_all_",
+                 facet_var = "name", ncols = 3, gray_area = FALSE)
+
+
+## To improve
+# a) remove Buendel_calc              ==> Manually befor calc
+# b) split over two plots             ==> manually select some columns
+
+
