@@ -33,35 +33,32 @@ dat <- dat %>%
   mutate(across(all_of(var_sel), ~ case_when(.x == "Ja" ~ 1, .x == "Nein" ~ 0)))
 
 
-# single plot -------------------------------------------------------------
 
 
 
 # all plots together ------------------------------------------------------
 
-full_grid <- expand_grid(Messperiode = year_full_levels(dat$Messperiode))
-
-
-p_var <- vector("list", length = length(var_sel))
-i <- 1
-for(i in seq_along(var_sel)){
-  resp <- var_sel[i]
-  t_var <- prop_period_fun(dat = dat, response = resp, by = NA,
-                               filter_crit = NA, full_grid = full_grid)
-  p_var[[i]] <- plot_prop_period(prop_period = t_var,
-                            fileprefix = paste0("03_figures/04_clapsi_",
-                                                sprintf("%02d", i)),
-                            title = resp)[[1]]
-}
-
-library(ggpubr)
-ggarrange(p_var[[2]], p_var[[3]], p_var[[4]],
-          p_var[[5]], p_var[[6]], p_var[[7]],
-          ncol = 3, nrow = 2)
-
-ggarrange(p_var[[8]], p_var[[9]], p_var[[10]],
-          p_var[[11]], p_var[[12]],
-          ncol = 3, nrow = 2)
+# full_grid <- expand_grid(Messperiode = year_full_levels(dat$Messperiode))
+# p_var <- vector("list", length = length(var_sel))
+# i <- 1
+# for(i in seq_along(var_sel)){
+#   resp <- var_sel[i]
+#   t_var <- prop_period_fun(dat = dat, response = resp, by = NA,
+#                                filter_crit = NA, full_grid = full_grid)
+#   p_var[[i]] <- plot_prop_period(prop_period = t_var,
+#                             fileprefix = paste0("03_figures/04_clapsi_",
+#                                                 sprintf("%02d", i)),
+#                             title = resp)[[1]]
+# }
+# 
+# library(ggpubr)
+# ggarrange(p_var[[2]], p_var[[3]], p_var[[4]],
+#           p_var[[5]], p_var[[6]], p_var[[7]],
+#           ncol = 3, nrow = 2)
+# 
+# ggarrange(p_var[[8]], p_var[[9]], p_var[[10]],
+#           p_var[[11]], p_var[[12]],
+#           ncol = 3, nrow = 2)
 
 
 
@@ -72,15 +69,27 @@ ggarrange(p_var[[8]], p_var[[9]], p_var[[10]],
 
 ldat <- dat %>% 
   pivot_longer(any_of(var_sel))
-# debugonce(prop_period_fun)
 t_var <- prop_period_fun(dat = ldat, response = "value", by = "name",
-                         filter_crit = NA, full_grid = full_grid)
-plot_prop_period(prop_period = t_var, fileprefix = "03_figures/04_clapsi_all_",
+                         filter_crit = NULL)
+t_var[[1]] %>% 
+  filter(name != "Buendel_calc")
+
+t_var[[2]] <- t_var[[1]] %>% 
+  filter(name == "Buendel_calc")
+t_var[[1]] <- t_var[[1]] %>% 
+  filter(name != "Buendel_calc")
+
+###### Do Next!
+# - split plot_prop_period() into 3 parts
+# --- generating plot_by
+# --- generating plot_agg
+# --- combine all 3 plots
+# - call plot_by() and plot_agg() separately on subsets of t_var[[1]]
+# --- plot_agg() on Buendel_calc 
+# --- plot_by() on the remaining categories
+
+
+p <- plot_prop_period(prop_period = t_var, fileprefix = "03_figures/04_clapsi",
                  facet_var = "name", ncols = 3, gray_area = FALSE)
-
-
-## To improve
-# a) remove Buendel_calc              ==> Manually befor calc
-# b) split over two plots             ==> manually select some columns
 
 
