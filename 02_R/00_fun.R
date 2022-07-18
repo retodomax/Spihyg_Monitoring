@@ -128,9 +128,9 @@ plot_by <- function(dat, fileprefix, facet_var = "Station",
     {if(gray_area) theme(legend.position = "bottom")} +
     {if(!gray_area) theme(legend.position="none")} +
     scale_y_continuous(breaks = seq(0,1,0.25), limits = c(-.3,1)) +
-    geom_text(aes(label = n, y = -.25)) +
+    geom_text(aes(label = n, y = -.2), angle = 90, size = 2, hjust = 1) +
     annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
-             hjust = 0) +
+             hjust = 0, size = 2.5) +
     facet_rep_wrap(~ .data[[facet_var]], ncol = ncols, repeat.tick.labels = 'x') +
     ylab("Anteil korrekte Beobachtungen") +
     scale_colour_manual(name = "",values = cols1) +
@@ -160,9 +160,9 @@ plot_agg <- function(dat, fileprefix,
     geom_line() +
     theme_bw() +
     scale_y_continuous(breaks = seq(0,1,0.25), limits = c(-.3,1)) +
-    geom_text(aes(label = n, y = -.25)) +
+    geom_text(aes(label = n, y = -.2), angle = 90, size = 2, hjust = 1) +
     annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
-             hjust = 0) +
+             hjust = 0, size = 2.5) +
     ylab("Anteil korrekte Beobachtungen") +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
     ggtitle(title) + theme(plot.title = element_text(size = 12))

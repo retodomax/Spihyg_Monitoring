@@ -35,14 +35,33 @@ dat <- dat %>%
                                              .x == "nicht korrekt" ~ 0)))
 
 
-# Option 1 (group by Erscheinungsbild) ------------------------------------
+# Overall -----------------------------------------------------------------
+
+ldat <- dat %>% 
+  pivot_longer(any_of(var_sel))
+
+ldat_agg <- ldat %>% 
+  filter(name == "Alles_Korrekt")
+t_corr <- prop_period_fun(dat = ldat_agg, response = "value", by = "name")
+p <- plot_agg(dat = t_corr[[2]],
+              fileprefix = "03_figures/05_ErscheinungsBild_all",
+              suffix = "_agg")
+
+ldat_by <- ldat %>% 
+  filter(name != "Alles_Korrekt")
+t_all <- prop_period_fun(dat = ldat_by, response = "value", by = "name")
+p <- plot_by(dat = t_all, fileprefix = "03_figures/05_ErscheinungsBild_all",
+             facet_var = "name", ncols = 3, gray_area = FALSE,
+             width2 = 16, height2 = 10)
+
+
+# Separate by profession --------------------------------------------------
+
+### Delete this as soon as we have also Observations for Mundschutz
+var_sel <- var_sel[!(var_sel %in% c("Mundschutz_Status"))]
+######
 
 ## loop through all variable
-
-
-### Delete Mundschutz as soon as we have also Observations for Mundschutz
-var_sel <- var_sel[!(var_sel %in% c("Mundschutz_Status"))]
-
 for(i in seq_along(var_sel)){
   vari <- var_sel[i]
   print(vari)
@@ -53,28 +72,4 @@ for(i in seq_along(var_sel)){
                facet_var = "Berufsgruppe", ncols = 4, width2 = 16,
                height2 = 7)
 }
-
-
-
-
-
-# Option 2 (like in current report) ---------------------------------------
-
-
-ldat <- dat %>% 
-  pivot_longer(any_of(var_sel))
-
-ldat2 <- ldat %>% 
-  filter(name != "Alles_Korrekt")
-
-t_all <- prop_period_fun(dat = ldat2, response = "value", by = "name")
-plot_prop_period(prop_period = t_all,
-                 fileprefix = "03_figures/05_ErscheinungsBild_all",
-                 facet_var = "name", gray_area = FALSE, ncols = 3)
-
-
-## look very different???
-
-
-
 
