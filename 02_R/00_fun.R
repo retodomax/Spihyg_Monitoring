@@ -110,7 +110,8 @@ plot_hdm <- function(dat = dat_station, filter_by = "Intermediate-Care-Stationen
 
 ## plot_by
 plot_by <- function(dat, fileprefix, facet_var = "Station",
-                    n_min = 10, ncols = 2, gray_area = TRUE){
+                    n_min = 10, ncols = 2, gray_area = TRUE,
+                    width2 = 16, height2 = 20){
   cols1 <- c("Spezifische Abteilung" = "black")
   cols2 <- c("USZ Durchschnitt" = "lightgray")
   p2 <- dat[[1]] %>% 
@@ -135,7 +136,7 @@ plot_by <- function(dat, fileprefix, facet_var = "Station",
     scale_colour_manual(name = "",values = cols1) +
     scale_fill_manual(name = "", values = cols2) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-  ggsave(paste0(fileprefix, "_by.png"), p2, width = 16, height = 20,
+  ggsave(paste0(fileprefix, "_by.png"), p2, width = width2, height = height2,
          units = "cm", scale = 1.5)
   p2
 }
@@ -175,6 +176,7 @@ plot_agg <- function(dat, fileprefix,
 ## function to make plots from prop_period output
 plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
                              n_min = 10, ncols = 2, width1 = 8, height1 = 6,
+                             width2 = 16, height2 = 20,
                              title = NULL, gray_area = TRUE){
   p2 <- NULL
   suffix <- ""
@@ -182,7 +184,8 @@ plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
   if(class(prop_period)[1] == "list"){
     p2 <- plot_by(dat = prop_period, fileprefix = fileprefix,
                   facet_var = facet_var, n_min = n_min,
-                  ncols = ncols, gray_area = gray_area)
+                  ncols = ncols, gray_area = gray_area,
+                  width2 = width2, height2 = height2)
     suffix <- "_agg"
     ag_table <- prop_period[[2]]
   }
