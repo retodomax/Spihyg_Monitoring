@@ -57,39 +57,39 @@ ggsave("03_figures/03_HDM_01_main.png", plot = p_main,
 ## IPS
 p_IPS <- plot_hdm(dat = dat_station,
                   filter_by = "Intensivpflegestationen (IPS)",
-                  filter_level = "Hauptbereich", wrap_by = "Station",
+                  filter_level = "Hauptbereich", facet_var = "Station",
                   filename = "03_figures/03_HDM_02_IPS.png")
 
 
 ## IMC
 p_IMC <- plot_hdm(dat = dat_station,
                   filter_by = "Intermediate-Care-Stationen (IMC)",
-                  filter_level = "Hauptbereich", wrap_by = "Station",
+                  filter_level = "Hauptbereich", facet_var = "Station",
                   filename = "03_figures/03_HDM_02_IMC.png")
 
 
 ## Normalstationen
 p_n <- plot_hdm(dat = dat_sub, filter_by = "Normalstationen (MSB)",
-                filter_level = "Hauptbereich", wrap_by = "Subbereich",
+                filter_level = "Hauptbereich", facet_var = "Subbereich",
                 filename = "03_figures/03_HDM_02_Normalstation.png")
 
 ## Normalstation PFA
 p_nA <- plot_hdm(dat = dat_station, filter_by = "PFA",
-                 filter_level = "Subbereich", wrap_by = "Station",
+                 filter_level = "Subbereich", facet_var = "Station",
                  filename = "03_figures/03_HDM_03_Normalstation_PFA.png")
 
 ## Normalstation PFB
 p_nB <- plot_hdm(dat = dat_station, filter_by = "PFB",
-                 filter_level = "Subbereich", wrap_by = "Station",
+                 filter_level = "Subbereich", facet_var = "Station",
                  filename = "03_figures/03_HDM_03_Normalstation_PFB.png")
 
 ## Normalstation PFC
 p_nC <- plot_hdm(dat = dat_station, filter_by = "PFC",
-                 filter_level = "Subbereich", wrap_by = "Station",
+                 filter_level = "Subbereich", facet_var = "Station",
                  filename = "03_figures/03_HDM_03_Normalstation_PFC.png")
 
 ## Normalstation PFD
 p_nD <- plot_hdm(dat = dat_station, filter_by = "PFD",
-                 filter_level = "Subbereich", wrap_by = "Station",
+                 filter_level = "Subbereich", facet_var = "Station",
                  filename = "03_figures/03_HDM_03_Normalstation_PFD.png")
 

@@ -88,7 +88,7 @@ prop_period_fun <- function(dat, response, by = NULL, filter_crit = NULL){
 
 ## HDM Plots
 plot_hdm <- function(dat = dat_station, filter_by = "Intermediate-Care-Stationen (IMC)",
-                     filter_level = "Hauptbereich", wrap_by = "Station",
+                     filter_level = "Hauptbereich", facet_var = "Station",
                      filename){
   p <- dat %>% 
     filter(.data[[filter_level]] == filter_by) %>% 
@@ -98,7 +98,7 @@ plot_hdm <- function(dat = dat_station, filter_by = "Intermediate-Care-Stationen
     geom_line() +
     geom_text(hjust=0, vjust=-1.3, size = 2.5) +
     ylab("Desinfektionsmittel/Pflegetag [ml/t]") +
-    facet_wrap(~ .data[[wrap_by]]) +
+    facet_wrap(~ .data[[facet_var]]) +
     theme_bw() + 
     scale_y_continuous(expand = expansion(mult = c(0.1,0.4))) +
     theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
@@ -193,4 +193,79 @@ plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
                  n_min = n_min, width1 = width1, height1 = height1,
                  title = title, suffix = suffix)
   list(p1, p2)
+}
+
+
+
+# Barplots ----------------------------------------------------------------
+
+
+barplot_agg <- function(dat, response, fileprefix){
+  dat <- dat %>%
+    filter(!is.na(.data[[response]])) %>%
+    mutate(Messperiode = factor(Messperiode,
+                                levels = year_full_levels(dat$Messperiode)))
+  dat_agg <- dat %>%
+    group_by(Messperiode, .drop = FALSE) %>%
+    summarise(n = n())
+  response <- sym(response)
+  ag_bar <- dat %>%
+    ggplot(aes(x = Messperiode)) +
+    geom_bar(aes(fill = !!response), position = "fill", width = 0.5) +
+    scale_x_discrete(drop = FALSE) +
+    theme_bw() +
+    ylab("Antiel Beobachtungen") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    scale_y_continuous(breaks = seq(0,1,0.25), limits = c(-.3,1)) +
+    geom_text(data = dat_agg, aes(label = n, y = -.2, x = Messperiode),
+              # inherit.aes = FALSE,
+              angle = 90, size = 2, hjust = 1) +
+    annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
+             hjust = 0, size = 2.5)
+  ggsave(paste0(fileprefix, "_bar_agg.png"), plot = ag_bar,
+         width = 16, height = 8, units = "cm", scale = 1.5)
+  ag_bar
+}
+
+
+
+barplot_by <- function(dat, response, by, fileprefix, n_min = 10,
+                       gray_area_dat){
+  max_per <- max(as.character(dat$Messperiode))
+  dat <- dat %>%
+    filter(!is.na(.data[[response]])) %>%
+    mutate(Messperiode = factor(Messperiode,
+                                levels = year_full_levels(dat$Messperiode)))
+  dat_agg <- dat %>%
+    group_by(Messperiode, across(any_of(by)), .drop = FALSE) %>%
+    summarise(n = n())
+  
+  myclin <- dat_agg %>%
+    filter(Messperiode == max_per, n >= n_min) %>% pull(Klinik)
+  dat2 <- dat %>% filter(Klinik %in% myclin)
+  dat_agg <- dat_agg %>% filter(Klinik %in% myclin)
+  
+  response <- sym(response)
+  cols2 <- c("USZ_Durchschnitt" = "lightgray")
+  by_bar <- dat2 %>%
+    ggplot(aes(x = Messperiode)) +
+    geom_area(data = gray_area_dat,
+              mapping = aes(x = Messperiode, y = percent_correct, group = 1,
+                            fill = "USZ_Durchschnitt")) + 
+    scale_fill_manual(name = "", values = cols2) +
+    new_scale_fill() +
+    geom_bar(aes(fill = !!response), position = "fill", width = 0.5) +
+    scale_x_discrete(drop = FALSE) +
+    theme_bw() +
+    ylab("Antiel Beobachtungen") +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    scale_y_continuous(breaks = seq(0,1,0.25), limits = c(-.3,1)) +
+    geom_text(data = dat_agg, aes(label = n, y = -.2, x = Messperiode),
+              inherit.aes = FALSE, angle = 90, size = 2, hjust = 1) +
+    annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
+             hjust = 0, size = 2.5) +
+    facet_wrap(eval(expr(~!!ensym(by))))
+  ggsave(paste0(fileprefix, "_bar_by.png"), plot = by_bar,
+         width = 16, height = 8, units = "cm", scale = 1.5)
+  by_bar
 }
