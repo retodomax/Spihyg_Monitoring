@@ -17,6 +17,9 @@ library(lemon)
 
 # Functions ---------------------------------------------------------------
 
+
+# Helper functions --------------------------------------------------------
+
 ## function to get all Messperiode levels
 year_full_levels <- function(x){
   x <- as.character(x)
@@ -50,6 +53,18 @@ binom_CI <- function(x, n, l) {
   }
 }
 
+poiss_CI <- function(x, t, l){
+  if(is.na(t) | is.na(x) | t == 0){
+    NA
+  } else {
+    survival::cipoisson(k = x, time = t)[l]
+  }
+}
+
+
+
+# Proportion tables -------------------------------------------------------
+
 ## function to get proportion pivot table
 prop_table <- function(dat, response, by = NULL, full_grid){
   dat %>% 
@@ -67,24 +82,171 @@ prop_table <- function(dat, response, by = NULL, full_grid){
     mutate(n = ifelse(is.na(n), 0, n))
 }
 
+## function to get rate table (nvHAP)
+rate_table <- function(dat, response, by = NULL, full_grid, patPerOe, rate = FALSE){
+  dat <- dat %>% 
+    group_by(Messperiode, across(any_of(by))) %>% 
+    summarize(n_correct = sum(.data[[response]] == "Ja", na.rm = TRUE)) %>% 
+    left_join(patPerOe)
+  if(rate){
+    dat <- dat %>% mutate(n = VWD/1000)
+    binom_CI <- poiss_CI
+  }
+  dat %>% 
+    mutate(percent_correct = n_correct/n) %>% 
+    rowwise() %>% 
+    mutate(CI_lo = binom_CI(n_correct, n, 1),
+           CI_up = binom_CI(n_correct, n, 2)) %>% 
+    ungroup() %>% 
+    right_join(full_grid) %>% 
+    arrange_at(c("Messperiode", by)) %>% 
+    mutate(n = ifelse(is.na(n), 0, n))
+}
+
+
+
 ## Applies prop_table twice if we specify `by` argument
-prop_period_fun <- function(dat, response, by = NULL, filter_crit = NULL){
+prop_period_fun <- function(dat, response, by = NULL, filter_crit = NULL,
+                            binomial = TRUE, patPerOe = NULL, rate = FALSE){
   if(!is.null(filter_crit)){
     dat <- dat %>% filter(.data[[filter_crit]] == "Ja")
   }
   small_grid <- tibble(Messperiode = year_full_levels(dat$Messperiode))
-  out <- dat_agg <- prop_table(dat = dat, response = response,
-                               by = NULL, full_grid = small_grid)
+  if(binomial){
+    out <- dat_agg <- prop_table(dat = dat, response = response,
+                                 by = NULL, full_grid = small_grid)
+  } else {
+    ag_patPerOe <- patPerOe %>% 
+      group_by(Messperiode) %>% 
+      summarise(n = sum(n, na.rm = TRUE),
+                VWD = sum(VWD, na.rm = TRUE))
+    out <- dat_agg <- rate_table(dat = dat, response = response,
+                                 by = NULL, full_grid = small_grid,
+                                 patPerOe = ag_patPerOe, rate = rate)
+  }
+
   if(!is.null(by)){
     full_grid <- expand_grid(year_full_levels(dat$Messperiode),
                              unique(na.omit(dat[[by]])))
     colnames(full_grid) <- c("Messperiode", by)
-    dat_by <- prop_table(dat = dat, response = response,
-                         by = by, full_grid = full_grid)
+    if(binomial){
+      dat_by <- prop_table(dat = dat, response = response,
+                           by = by, full_grid = full_grid)
+    } else {
+      dat_by <- rate_table(dat = dat, response = response,
+                           by = by, full_grid = full_grid,
+                           patPerOe = patPerOe, rate = rate)
+    }
     out <- list(dat_by = dat_by, dat_agg = dat_agg)
   }
   out
 }
+
+
+
+# Plot functions ----------------------------------------------------------
+
+
+## helper function
+rp <- function(ylim, p){ ylim[1] + diff(ylim)*p }
+
+## plot_by
+plot_by <- function(dat, fileprefix, facet_var = "Station",
+                    n_min = 10, ncols = 2, gray_area = TRUE,
+                    width2 = 16, height2 = 20, ylim = c(0,1),
+                    ylab = "Anteil korrekte Beobachtungen"){
+  cols1 <- c("Spezifische Abteilung" = "black")
+  cols2 <- c("USZ Durchschnitt" = "lightgray")
+  p2 <- dat[[1]] %>% 
+    mutate(across(all_of(c("percent_correct", "CI_lo", "CI_up")),
+                  ~ ifelse(n < n_min, NA, .x))) %>% 
+    ggplot(aes(x = Messperiode, y = percent_correct, group = 1)) +
+    {if(gray_area) geom_area(data = dat[[2]],
+                             aes(x = Messperiode, y = percent_correct,
+                                 fill = "USZ Durchschnitt"))} +
+    geom_errorbar(aes(ymin = CI_lo, ymax = CI_up), width = 0.1, col = "darkgray") +
+    geom_point(aes(col = "Spezifische Abteilung")) +
+    geom_line(aes(col = "Spezifische Abteilung")) +
+    theme_bw() +
+    {if(gray_area) theme(legend.position = "bottom")} +
+    {if(!gray_area) theme(legend.position="none")} +
+    scale_y_continuous(breaks = pretty(ylim, n = 3)) +
+    coord_cartesian(ylim = c(rp(ylim, -.3), ylim[2])) +
+    geom_text(aes(label = n, y = rp(ylim, -.2)), angle = 90, size = 2, hjust = 1) +
+    annotate(geom="text", x= 0.8, y= rp(ylim, -.1), label="Gesamt N",
+             hjust = 0, size = 2.5) +
+    facet_rep_wrap(~ .data[[facet_var]], ncol = ncols, repeat.tick.labels = 'x') +
+    ylab(ylab) +
+    scale_colour_manual(name = "",values = cols1) +
+    scale_fill_manual(name = "", values = cols2) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+  ggsave(paste0(fileprefix, "_by.png"), p2, width = width2, height = height2,
+         units = "cm", scale = 1.5)
+  p2
+}
+
+
+## plot_agg
+plot_agg <- function(dat, fileprefix,
+                     n_min = 10, width1 = 8, height1 = 6,
+                     title = NULL, suffix = "", ylim = c(0,1),
+                     ylab = "Anteil korrekte Beobachtungen"){
+  p1 <- dat %>% 
+    # mutate(percent_correct = ifelse(n < n_min, NA, percent_correct),
+    #        CI_lo = ifelse(n < n_min, NA, CI_lo),
+    #        CI_up = ifelse(n < n_min, NA, CI_up)) %>% 
+    mutate(across(all_of(c("percent_correct", "CI_lo", "CI_up")),
+                  ~ ifelse(n < n_min, NA, .x))) %>% 
+    ggplot(aes(x = Messperiode, y = percent_correct, group = 1,
+               label = round(percent_correct, 2))) +
+    geom_errorbar(aes(ymin = CI_lo, ymax = CI_up), width = 0.1, col = "darkgray") +
+    geom_point() +
+    geom_text(hjust=-.3, vjust=-.3, size = 2.5) +
+    geom_line() +
+    theme_bw() +
+    scale_y_continuous(breaks = pretty(ylim, n = 3)) +
+    coord_cartesian(ylim = c(rp(ylim, -.3), ylim[2])) +
+    geom_text(aes(label = n, y = rp(ylim, -.2)), angle = 90, size = 2, hjust = 1) +
+    annotate(geom="text", x= 0.8, y= rp(ylim, -.1), label="Gesamt N",
+             hjust = 0, size = 2.5) +
+    ylab(ylab) +
+    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+    ggtitle(title) + theme(plot.title = element_text(size = 12))
+  ggsave(paste0(fileprefix, suffix, ".png"), p1, width = width1, height = height1,
+         units = "cm", scale = 1.5)
+  p1
+}
+  
+
+
+## function to make plots from prop_period output
+plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
+                             n_min = 10, ncols = 2, width1 = 8, height1 = 6,
+                             width2 = 16, height2 = 20,
+                             title = NULL, gray_area = TRUE,
+                             ylim = c(0,1), ylab = "Anteil korrekte Beobachtungen"){
+  p2 <- NULL
+  suffix <- ""
+  ag_table <- prop_period
+  if(class(prop_period)[1] == "list"){
+    p2 <- plot_by(dat = prop_period, fileprefix = fileprefix,
+                  facet_var = facet_var, n_min = n_min,
+                  ncols = ncols, gray_area = gray_area,
+                  width2 = width2, height2 = height2,
+                  ylim = ylim, ylab = ylab)
+    suffix <- "_agg"
+    ag_table <- prop_period[[2]]
+  }
+  p1 <- plot_agg(dat = ag_table, fileprefix = fileprefix,
+                 n_min = n_min, width1 = width1, height1 = height1,
+                 title = title, suffix = suffix,
+                 ylim = ylim, ylab = ylab)
+  list(p1, p2)
+}
+
+
+
+# HDM ---------------------------------------------------------------------
 
 ## HDM Plots
 plot_hdm <- function(dat = dat_station, filter_by = "Intermediate-Care-Stationen (IMC)",
@@ -105,94 +267,6 @@ plot_hdm <- function(dat = dat_station, filter_by = "Intermediate-Care-Stationen
   ggsave(filename = filename, plot = p,
          width = 16, height = 14, units = "cm", scale = 1.5)
   p
-}
-
-
-## plot_by
-plot_by <- function(dat, fileprefix, facet_var = "Station",
-                    n_min = 10, ncols = 2, gray_area = TRUE,
-                    width2 = 16, height2 = 20){
-  cols1 <- c("Spezifische Abteilung" = "black")
-  cols2 <- c("USZ Durchschnitt" = "lightgray")
-  p2 <- dat[[1]] %>% 
-    mutate(across(all_of(c("percent_correct", "CI_lo", "CI_up")),
-                  ~ ifelse(n < n_min, NA, .x))) %>% 
-    ggplot(aes(x = Messperiode, y = percent_correct, group = 1)) +
-    {if(gray_area) geom_area(data = dat[[2]],
-                             aes(x = Messperiode, y = percent_correct,
-                                 fill = "USZ Durchschnitt"))} +
-    geom_errorbar(aes(ymin = CI_lo, ymax = CI_up), width = 0.1, col = "darkgray") +
-    geom_point(aes(col = "Spezifische Abteilung")) +
-    geom_line(aes(col = "Spezifische Abteilung")) +
-    theme_bw() +
-    {if(gray_area) theme(legend.position = "bottom")} +
-    {if(!gray_area) theme(legend.position="none")} +
-    scale_y_continuous(breaks = seq(0,1,0.25), limits = c(-.3,1)) +
-    geom_text(aes(label = n, y = -.2), angle = 90, size = 2, hjust = 1) +
-    annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
-             hjust = 0, size = 2.5) +
-    facet_rep_wrap(~ .data[[facet_var]], ncol = ncols, repeat.tick.labels = 'x') +
-    ylab("Anteil korrekte Beobachtungen") +
-    scale_colour_manual(name = "",values = cols1) +
-    scale_fill_manual(name = "", values = cols2) +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-  ggsave(paste0(fileprefix, "_by.png"), p2, width = width2, height = height2,
-         units = "cm", scale = 1.5)
-  p2
-}
-
-
-## plot_agg
-plot_agg <- function(dat, fileprefix,
-                     n_min = 10, width1 = 8, height1 = 6,
-                     title = NULL, suffix = ""){
-  p1 <- dat %>% 
-    # mutate(percent_correct = ifelse(n < n_min, NA, percent_correct),
-    #        CI_lo = ifelse(n < n_min, NA, CI_lo),
-    #        CI_up = ifelse(n < n_min, NA, CI_up)) %>% 
-    mutate(across(all_of(c("percent_correct", "CI_lo", "CI_up")),
-                  ~ ifelse(n < n_min, NA, .x))) %>% 
-    ggplot(aes(x = Messperiode, y = percent_correct, group = 1,
-               label = round(percent_correct, 2))) +
-    geom_errorbar(aes(ymin = CI_lo, ymax = CI_up), width = 0.1, col = "darkgray") +
-    geom_point() +
-    geom_text(hjust=-.3, vjust=-.3, size = 2.5) +
-    geom_line() +
-    theme_bw() +
-    scale_y_continuous(breaks = seq(0,1,0.25), limits = c(-.3,1)) +
-    geom_text(aes(label = n, y = -.2), angle = 90, size = 2, hjust = 1) +
-    annotate(geom="text", x= 0.8, y=-.1, label="Gesamt N",
-             hjust = 0, size = 2.5) +
-    ylab("Anteil korrekte Beobachtungen") +
-    theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
-    ggtitle(title) + theme(plot.title = element_text(size = 12))
-  ggsave(paste0(fileprefix, suffix, ".png"), p1, width = width1, height = height1,
-         units = "cm", scale = 1.5)
-  p1
-}
-  
-
-
-## function to make plots from prop_period output
-plot_prop_period <- function(prop_period, fileprefix, facet_var = "Station",
-                             n_min = 10, ncols = 2, width1 = 8, height1 = 6,
-                             width2 = 16, height2 = 20,
-                             title = NULL, gray_area = TRUE){
-  p2 <- NULL
-  suffix <- ""
-  ag_table <- prop_period
-  if(class(prop_period)[1] == "list"){
-    p2 <- plot_by(dat = prop_period, fileprefix = fileprefix,
-                  facet_var = facet_var, n_min = n_min,
-                  ncols = ncols, gray_area = gray_area,
-                  width2 = width2, height2 = height2)
-    suffix <- "_agg"
-    ag_table <- prop_period[[2]]
-  }
-  p1 <- plot_agg(dat = ag_table, fileprefix = fileprefix,
-                 n_min = n_min, width1 = width1, height1 = height1,
-                 title = title, suffix = suffix)
-  list(p1, p2)
 }
 
 
