@@ -18,17 +18,17 @@ source("02_R/00_fun.R")
 
 # read data ---------------------------------------------------------------
 
-dat <- read_excel("01_data/VAP_python_output2_cens.xlsx", na = "NA")
+dat <- read_excel_n("01_data/vap_monitoring_output.xlsx")
 
 dat <- dat %>% 
+  # recode response variables
   mutate(OKH_Formel = ifelse(OKH_Formel == "korrekt", 1,
                              ifelse(OKH_Formel == "nicht korrekt", 0, NA)),
          Sedationsstopp_Ja_Nein = ifelse(Sedationsstopp_Ja_Nein == "Ja", 1,
                                          ifelse(Sedationsstopp_Ja_Nein == "Nein",
                                                 0, NA)),
          Mundpflege = ifelse(Mundpflege == "Ja", 1,
-                             ifelse(Mundpflege == "Nein", 0, NA))) %>% 
-  filter(Messperiode %in% rev(year_full_levels(Messperiode))[1:10])
+                             ifelse(Mundpflege == "Nein", 0, NA)))
 
 
 # create tables -----------------------------------------------------------
@@ -47,8 +47,8 @@ t_Mund <- prop_period_fun(dat = dat, response = "Mundpflege",
 # create plots ------------------------------------------------------------
 
 p_OKH <- plot_prop_period(prop_period = t_OKH,
-                          fileprefix = "03_figures/01_VAP_OKH")
+                          fileprefix = "01_VAP_OKH")
 p_Sed <- plot_prop_period(prop_period = t_Sed,
-                          fileprefix = "03_figures/01_VAP_Sed")
+                          fileprefix = "01_VAP_Sed")
 p_Mund <- plot_prop_period(prop_period = t_Mund,
-                           fileprefix = "03_figures/01_VAP_Mund")
+                           fileprefix = "01_VAP_Mund")

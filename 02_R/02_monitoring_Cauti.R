@@ -18,34 +18,24 @@ library(ggnewscale)
 
 # read data ---------------------------------------------------------------
 
-dat <- read_excel("01_data/cauti_output_cens.xlsx", na = "NA")
+dat <- read_excel_n("01_data/cauti_monitoring_output.xlsx")
+
+# recode response variable
 dat <- dat %>% 
   rename(Tgl_Evaluation = `Tgl. Evaluation`) %>% 
   mutate(Tgl_Evaluation = case_when(Tgl_Evaluation == "ja" ~ 1,
-                                    Tgl_Evaluation == "nein" ~ 0)) %>% 
-  filter(Messperiode %in% rev(year_full_levels(Messperiode))[1:10])
+                                    Tgl_Evaluation == "nein" ~ 0))
 
-max_per <- max(dat$Messperiode)
 
 
 # Daily Evaluation --------------------------------------------------------
 
-# full_grid <- expand_grid(Messperiode = year_full_levels(dat$Messperiode),
-#                          Klinik = unique(dat$Klinik))
-# 
-# t_cauti <- prop_period_fun(dat = dat, response = "Tgl_Evaluation", by = "Klinik",
-#                          filter_crit = NA, full_grid = full_grid)
 t_cauti <- prop_period_fun(dat = dat, response = "Tgl_Evaluation",
                            by = "Klinik")
 
-myclin <- t_cauti[[1]] %>% filter(Messperiode == max_per, n > 9) %>% pull(Klinik)
-t_cauti[[1]] <- t_cauti[[1]] %>%
-  filter(Klinik %in% myclin)
-
-p_cauti <- plot_prop_period(prop_period = t_cauti,
-                            fileprefix = "03_figures/02_Cauti_01_daily",
-                            facet_var = "Klinik", ncols = 4,
-                            width1 = 16, height1 = 8)
+p_cauti <- plot_prop_period(prop_period = t_cauti, by = "Klinik",
+                 fileprefix = "02_Cauti_01_daily", width1 = 16, height1 = 8,
+                 n_min_by = 10, ncols = 3)
 
 
 
@@ -60,29 +50,21 @@ dat <- dat %>%
                               levels = year_full_levels(dat$Messperiode)),
          AnyIndi = as.numeric(Indikation != "Keine Indikation"))
 
-# full_grid <- expand_grid(Messperiode = year_full_levels(dat$Messperiode),
-#                          Klinik = unique(dat$Klinik))
-# t_anyIndi <- prop_period_fun(dat = dat, response = "AnyIndi", by = "Klinik",
-#                              filter_crit = NA, full_grid = full_grid)
 t_anyIndi <- prop_period_fun(dat = dat, response = "AnyIndi", by = "Klinik")
 
-myclin <- t_anyIndi[[1]] %>% filter(Messperiode == max_per, n > 9) %>% pull(Klinik)
-t_anyIndi[[1]] <- t_anyIndi[[1]] %>% 
-  filter(Klinik %in% myclin)
-p_anyIndi <- plot_prop_period(prop_period = t_anyIndi,
-                              fileprefix = "03_figures/02_Cauti_03_valid",
-                              facet_var = "Klinik", ncols = 4,
-                              width1 = 16, height1 = 8)
-
+p_anyIndi <- plot_prop_period(prop_period = t_anyIndi, by = "Klinik",
+                              fileprefix = "02_Cauti_03_valid",
+                              width1 = 16, height1 = 8,
+                              n_min_by = 10, ncols = 3)
 
 
 
 # Indication Barplot ------------------------------------------------------
 
-
 ag_bar <- barplot_agg(dat = dat, response = "Indikation",
-                      fileprefix = "03_figures/02_Cauti_02")
+                      fileprefix = "02_Cauti_02")
 
-barplot_by(dat = dat, response = "Indikation", by = "Klinik"
-           , fileprefix = "03_figures/02_Cauti_02", n_min = 10
-           , gray_area_dat = t_anyIndi[[2]])
+by_bar <- barplot_by(dat = dat, response = "Indikation", by = "Klinik"
+                     , fileprefix = "02_Cauti_02", n_min = 10
+                     , gray_area_dat = t_anyIndi[[2]])
+

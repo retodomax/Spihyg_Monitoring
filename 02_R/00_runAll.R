@@ -7,6 +7,17 @@
 #' ---
 
 
+
+# packages ----------------------------------------------------------------
+
+## loads the necessary packages or installs them if they are not found
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(readxl, magrittr, tidyverse, lemon, ggnewscale, scales, survival)
+
+
+
+# run all scripts ---------------------------------------------------------
+
 source("02_R/00_fun.R")
 source("02_R/01_monitoring_VAP5.R")
 source("02_R/02_monitoring_Cauti.R")
